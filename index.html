@@ -41,16 +41,13 @@
             <div class="text-left space-y-4 mb-6">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">請選擇身分驗證</label>
-                    <select id="login-identity" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 text-navy font-semibold">
-                        <option value="Weivid Wu">Weivid Wu (商務總監)</option>
-                        <option value="Yiyo Pan">Yiyo Pan (品牌總監)</option>
-                        <option value="Administrator">系統管理員 (Administrator)</option>
-                    </select>
+                    <select id="login-identity" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 text-navy font-semibold"><option value="">載入團隊人員中…</option></select>
+                    <p id="login-identity-status" class="text-xs text-gray-500 mt-2" role="status">正在同步團隊人員…</p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">存取通行碼 (PIN)</label>
                     <input type="password" id="login-pin" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 tracking-widest" placeholder="請輸入此角色的 PIN / 密碼" maxlength="64" autocomplete="current-password">
-                    <p class="text-xs text-gray-500 mt-2">各角色首次登入預設 PIN：8888。修改後，所有裝置均使用該角色的新密碼。</p>
+                    <p class="text-xs text-gray-500 mt-2">每位人員首次登入預設 PIN：8888。修改後，所有裝置均使用該人員的新密碼。</p>
                     <p class="text-xs text-gray-500 mt-1">團隊共用雲端資料，登入後即可查看並更新相同的客戶、會議與每日回報。</p>
                 </div>
             </div>
@@ -349,8 +346,12 @@
     <script>
         const API_URL = (location.hostname === 'biz.snn.tw' || location.hostname.endsWith('.github.io'))
             ? 'https://snn-biz-shared.anderson82kh.chatgpt.site/api/team' : '/api/team';
-        const IDENTITIES = ['Weivid Wu', 'Yiyo Pan', 'Administrator'];
         let currentUser = null;
+        let currentMemberId = null;
+        let currentPosition = '';
+        let loginIdentities = [];
+        let loadingIdentities = false;
+        let identitySignature = '';
         let sessionToken = '';
         try { sessionToken = sessionStorage.getItem('snn_team_session') || ''; } catch (error) {}
         let db = { pipeline: [], meetings: [], daily: [], members: [], catalog: [], auditLogs: [] };
@@ -375,6 +376,8 @@
         function clearSession() {
             sessionToken = '';
             currentUser = null;
+            currentMemberId = null;
+            currentPosition = '';
             pendingAction = null;
             reasonSourceModal = null;
             try { sessionStorage.removeItem('snn_team_session'); } catch (error) {}
@@ -411,22 +414,60 @@
         }
 
         function requireLogin() {
-            if (IDENTITIES.includes(currentUser) && sessionToken) return true;
+            if (currentUser && currentMemberId && sessionToken) return true;
             document.getElementById('login-overlay').classList.remove('hidden');
             alert('請先登入後再操作。');
             return false;
         }
 
+        function acceptIdentity(identity, user) {
+            currentMemberId = identity ? identity.id : null;
+            currentUser = identity ? identity.name : user;
+            currentPosition = identity ? identity.position : '';
+        }
+
+        async function loadLoginIdentities() {
+            if (loadingIdentities) return;
+            loadingIdentities = true;
+            const select = document.getElementById('login-identity');
+            const status = document.getElementById('login-identity-status');
+            try {
+                const result = await api('identities');
+                if (!Array.isArray(result.identities)) throw new Error('登入名單回應異常，請稍後重試。');
+                const selected = select.value;
+                const signature = JSON.stringify(result.identities);
+                loginIdentities = result.identities;
+                if (signature !== identitySignature) {
+                    const firstLoad = !identitySignature;
+                    select.innerHTML = '<option value="">請選擇登入人員</option>' + loginIdentities.map(person =>
+                        `<option value="${escapeHtml(person.id)}">${escapeHtml(person.name)}（${escapeHtml(person.position)}）</option>`).join('');
+                    if (loginIdentities.some(person => person.id === selected)) select.value = selected;
+                    else if (firstLoad && loginIdentities.length) select.value = loginIdentities[0].id;
+                    else { select.value = ''; document.getElementById('login-pin').value = ''; }
+                    identitySignature = signature;
+                }
+                select.disabled = !loginIdentities.length;
+                status.textContent = loginIdentities.length ? '登入名單與團隊人員管理自動同步。' : '目前沒有可登入的團隊人員。';
+                if (currentMemberId) {
+                    const person = loginIdentities.find(person => person.id === currentMemberId);
+                    if (!person) { clearSession(); setStatus('此人員已移除，登入資格已停止。'); }
+                    else { acceptIdentity(person,person.name); updateUserDisplay(); }
+                }
+            } catch (error) { status.textContent = error.message; }
+            finally { loadingIdentities = false; }
+        }
+
         async function handleLogin() {
             const identity = document.getElementById('login-identity').value;
             const pin = document.getElementById('login-pin').value;
+            if (!identity) { alert('請先選擇登入人員。'); return; }
             const button = document.querySelector('[onclick="handleLogin()"]');
             if (button.disabled) return;
             button.disabled = true;
             try {
                 const result = await api('login', { identity, pin });
                 sessionToken = result.token;
-                currentUser = result.user;
+                acceptIdentity(result.identity,result.user);
                 db = result.data;
                 try { sessionStorage.setItem('snn_team_session', sessionToken); } catch (error) {}
                 document.getElementById('login-pin').value = '';
@@ -442,6 +483,7 @@
             try { if (sessionToken) await api('logout'); }
             catch (error) {}
             clearSession();
+            await loadLoginIdentities();
             setStatus('已登出');
             document.getElementById('login-pin').focus();
         }
@@ -475,7 +517,7 @@
         }
 
         function updateUserDisplay() {
-            document.getElementById('current-user-display').innerText = currentUser ? `當前身分: ${currentUser}` : '尚未登入';
+            document.getElementById('current-user-display').innerText = currentUser ? `當前身分: ${currentUser}${currentPosition ? '（' + currentPosition + '）' : ''}` : '尚未登入';
             document.getElementById('user-avatar').innerText = currentUser ? currentUser.charAt(0) : '—';
         }
 
@@ -486,7 +528,7 @@
             try {
                 const result = await api('state');
                 db = result.data;
-                currentUser = result.user;
+                acceptIdentity(result.identity,result.user);
                 updateUserDisplay();
                 renderCurrentTab();
                 setStatus('雲端已同步 · ' + new Date().toLocaleTimeString('zh-TW'));
@@ -561,6 +603,18 @@
                 submittingAction = false;
                 closeReasonModal();
                 if (sourceModal) document.getElementById(sourceModal).classList.add('hidden');
+                if (action.resource === 'members') {
+                    const me = db.members.find(member => member._id === currentMemberId);
+                    if (!me) {
+                        clearSession();
+                        await loadLoginIdentities();
+                        setStatus('人員已移除，已登出該帳號。');
+                        return;
+                    }
+                    acceptIdentity({id:me._id,name:me.name,position:me.position},me.name);
+                    updateUserDisplay();
+                    await loadLoginIdentities();
+                }
                 renderCurrentTab();
                 setStatus('已儲存至團隊共用資料 · ' + new Date().toLocaleTimeString('zh-TW'));
             } catch (error) {
@@ -995,7 +1049,7 @@
             select.dataset.historicalOwner = '';
             select.dataset.historicalOwnerId = '';
             const member = item ? members.find(m => item.ownerId ? m._id === item.ownerId : (m.name === item.owner || m.legacyAlias === item.owner))
-                : (members.find(m => m.accountId === currentUser) || members[0]);
+                : (members.find(m => m._id === currentMemberId) || members[0]);
             if (member) select.value = member._id;
             else if (item && item.owner) {
                 const option = document.createElement('option');
@@ -1020,7 +1074,7 @@
             container.innerHTML = `
                 <div class="space-y-6">
                     <div class="flex justify-between items-center">
-                        <p class="text-sm text-gray-500">商務總監、品牌總監與管理員皆可維護團隊姓名、職位，供案件與每日回報選擇負責人。</p>
+                        <p class="text-sm text-gray-500">新增人員即同步建立登入帳號（首次 PIN：8888）；編輯姓名與職位不會重設密碼，刪除則同步停止登入。</p>
                         <button onclick="openMemberModal()" class="bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium"><i class="fas fa-user-plus mr-1"></i>新增團隊人員</button>
                     </div>
                     <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -1072,7 +1126,7 @@
             const member = db.members[idx];
             triggerWithReason({ name:'刪除團隊人員：'+member.name, resource:'members', kind:'delete',
                 recordId:member._id, recordVersion:member._rev
-            }, `請說明移除「${member.name}」的原因，既有案件與回報紀錄將保留：`);
+            }, `請說明移除「${member.name}」的原因，登入帳號也會停止使用，既有案件與回報紀錄將保留：`);
         }
 
         function renderCatalog(container) {
@@ -1217,13 +1271,18 @@
 
         async function initializeSharedSession() {
             updateUserDisplay();
+            await loadLoginIdentities();
             if (sessionToken) await refreshSharedData();
             if (currentUser) document.getElementById('login-overlay').classList.add('hidden');
         }
         initializeMeetingTimeOptions();
         initializeSharedSession();
-        setInterval(() => { if (!document.hidden) refreshSharedData(); }, 10000);
-        window.addEventListener('focus', () => refreshSharedData());
+        function syncVisibleWorkspace() {
+            if (!document.hidden) { loadLoginIdentities(); refreshSharedData(); }
+        }
+        setInterval(syncVisibleWorkspace,10000);
+        window.addEventListener('focus',syncVisibleWorkspace);
+        document.addEventListener('visibilitychange',syncVisibleWorkspace);
     </script>
 </body>
 </html>
