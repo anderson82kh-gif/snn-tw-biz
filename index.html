@@ -81,6 +81,9 @@
             <a onclick="switchTab('daily')" data-tab="daily" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-clipboard-list w-6"></i> 每日進度回報
             </a>
+            <a onclick="switchTab('members')" data-tab="members" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
+                <i class="fas fa-users w-6"></i> 團隊人員管理
+            </a>
             <a onclick="switchTab('catalog')" data-tab="catalog" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-boxes w-6"></i> 模組定價與規格
             </a>
@@ -211,7 +214,6 @@
                         <option>初次接觸</option>
                         <option>需求訪談</option>
                         <option selected>提案確信中</option>
-                        <option>議價階段</option>
                         <option>合約審閱中</option>
                         <option>已成交</option>
                         <option>已暫緩</option>
@@ -219,10 +221,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">負責業務</label>
-                    <select id="pipe-owner" class="w-full border rounded-lg p-2 text-sm">
-                        <option value="Weivid">Weivid</option>
-                        <option value="Yiyo">Yiyo</option>
-                    </select>
+                    <select id="pipe-owner" class="w-full border rounded-lg p-2 text-sm"><option value="">請選擇團隊人員</option></select>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -253,8 +252,11 @@
                     <input type="date" id="meet-date" class="w-full border rounded-lg p-2 text-sm" value="2026-11-18">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">時間</label>
-                    <input type="text" id="meet-time" class="w-full border rounded-lg p-2 text-sm" value="14:00 - 15:00">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label for="meet-start-time" class="block text-xs font-bold text-gray-700 mb-1">開始時間</label><select id="meet-start-time" class="w-full border rounded-lg p-2 text-sm" onchange="updateMeetingEndOptions()"></select></div>
+                        <div><label for="meet-end-time" class="block text-xs font-bold text-gray-700 mb-1">結束時間</label><select id="meet-end-time" class="w-full border rounded-lg p-2 text-sm"></select></div>
+                    </div>
+                    <p id="meet-time-hint" class="text-xs text-gray-500 mt-1">以半小時為單位，結束時間需晚於開始。</p>
                 </div>
             </div>
             <div class="mb-4">
@@ -266,8 +268,18 @@
                 <input type="text" id="meet-attendees" class="w-full border rounded-lg p-2 text-sm" value="Weivid, Yiyo">
             </div>
             <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-700 mb-1">Google Meet 連結</label>
-                <input type="text" id="meet-link" class="w-full border rounded-lg p-2 text-sm" value="meet.google.com/abc-defg-hij">
+                <label for="meet-link" class="block text-xs font-bold text-gray-700 mb-1">Google Meet 連結（線上會議，可留空）</label>
+                <input type="text" id="meet-link" class="w-full border rounded-lg p-2 text-sm" placeholder="線上會議網址，可留空">
+            </div>
+            <div class="mb-4">
+                <label for="meet-location" class="block text-xs font-bold text-gray-700 mb-1">實體會議地點</label>
+                <input type="text" id="meet-location" maxlength="200" class="w-full border rounded-lg p-2 text-sm" placeholder="輸入實體會議地點或地址" oninput="updateMeetingMapPreview()">
+            </div>
+            <div class="mb-4">
+                <label for="meet-map-link" class="block text-xs font-bold text-gray-700 mb-1">Google Maps 連結</label>
+                <input type="text" id="meet-map-link" maxlength="2048" class="w-full border rounded-lg p-2 text-sm" placeholder="貼上 Google Maps 分享連結，可留空" oninput="updateMeetingMapPreview()">
+                <p class="text-xs text-gray-500 mt-1">未貼地圖連結時，會依實體會議地點產生 Google Maps 搜尋連結。</p>
+                <a id="meeting-map-preview" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-xs text-blue-600 underline mt-2">在 Google Maps 開啟地點</a>
             </div>
             <div class="mb-4">
                 <label class="block text-xs font-bold text-gray-700 mb-1">會後重點決議與備註</label>
@@ -292,10 +304,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">負責人</label>
-                    <select id="daily-owner" class="w-full border rounded-lg p-2 text-sm">
-                        <option value="Weivid">Weivid</option>
-                        <option value="Yiyo">Yiyo</option>
-                    </select>
+                    <select id="daily-owner" class="w-full border rounded-lg p-2 text-sm"><option value="">請選擇團隊人員</option></select>
                 </div>
             </div>
             <div class="mb-4">
@@ -317,6 +326,26 @@
         </div>
     </div>
 
+    <!-- 團隊人員 Modal -->
+    <div id="member-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6">
+            <h3 id="member-modal-title" class="text-lg font-bold text-navy mb-4">新增團隊人員</h3>
+            <input type="hidden" id="member-edit-idx" value="-1">
+            <div class="mb-4">
+                <label for="member-name" class="block text-xs font-bold text-gray-700 mb-1">姓名</label>
+                <input id="member-name" type="text" maxlength="100" class="w-full border rounded-lg p-2 text-sm" placeholder="輸入團隊成員姓名">
+            </div>
+            <div class="mb-6">
+                <label for="member-position" class="block text-xs font-bold text-gray-700 mb-1">職位</label>
+                <input id="member-position" type="text" maxlength="100" class="w-full border rounded-lg p-2 text-sm" placeholder="輸入職位">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button onclick="document.getElementById('member-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg text-sm text-gray-600">取消</button>
+                <button onclick="saveMemberData()" class="px-4 py-2 bg-navy text-white rounded-lg text-sm">儲存人員</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_URL = (location.hostname === 'biz.snn.tw' || location.hostname.endsWith('.github.io'))
             ? 'https://snn-biz-shared.anderson82kh.chatgpt.site/api/team' : '/api/team';
@@ -324,7 +353,7 @@
         let currentUser = null;
         let sessionToken = '';
         try { sessionToken = sessionStorage.getItem('snn_team_session') || ''; } catch (error) {}
-        let db = { pipeline: [], meetings: [], daily: [], catalog: [], auditLogs: [] };
+        let db = { pipeline: [], meetings: [], daily: [], members: [], catalog: [], auditLogs: [] };
         let pendingAction = null;
         let reasonSourceModal = null;
         let submittingAction = false;
@@ -478,6 +507,7 @@
                 'pipeline': '客戶與進度明細',
                 'calendar': '會議日曆安排',
                 'daily': '每日進度回報',
+                'members': '團隊人員管理',
                 'catalog': '模組定價與規格',
                 'audit': '異動稽核紀錄 (Audit Log)'
             };
@@ -493,13 +523,14 @@
             else if (currentTab === 'pipeline') renderPipeline(container);
             else if (currentTab === 'calendar') renderCalendar(container);
             else if (currentTab === 'daily') renderDaily(container);
+            else if (currentTab === 'members') renderMembers(container);
             else if (currentTab === 'catalog') renderCatalog(container);
             else if (currentTab === 'audit') renderAudit(container);
         }
 
         function triggerWithReason(action, desc = '請填寫操作原因：') {
             if (!requireLogin() || pendingAction || submittingAction) return;
-            reasonSourceModal = ['pipeline-modal', 'meeting-modal', 'daily-modal']
+            reasonSourceModal = ['pipeline-modal', 'meeting-modal', 'daily-modal', 'member-modal']
                 .find(id => !document.getElementById(id).classList.contains('hidden')) || null;
             document.getElementById('reason-modal-desc').innerText = desc;
             document.getElementById('action-reason-input').value = '';
@@ -585,7 +616,7 @@
                                 </tr>
                             </thead>
                             <tbody class="text-sm divide-y">
-                                ${['初次接觸', '需求訪談', '提案確信中', '議價階段', '合約審閱中', '已成交', '已暫緩'].map(stage => {
+                                ${['初次接觸', '需求訪談', '提案確信中', '合約審閱中', '已成交', '已暫緩'].map(stage => {
                                     const items = db.pipeline.filter(p => p.stage === stage);
                                     const sum = items.reduce((acc, i) => acc + i.amount, 0);
                                     return `<tr class="hover:bg-gray-50">
@@ -634,7 +665,7 @@
                                         <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">${escapeHtml(p.module)}</span></td>
                                         <td class="p-3 text-right font-medium">$${p.amount.toLocaleString()}</td>
                                         <td class="p-3 text-center"><span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">${escapeHtml(p.stage)}</span></td>
-                                        <td class="p-3 text-center font-medium">${escapeHtml(p.owner)}</td>
+                                        <td class="p-3 text-center font-medium">${escapeHtml(ownerLabel(p))}</td>
                                         <td class="p-3 text-xs text-gray-500">${escapeHtml(p.date)}</td>
                                         <td class="p-3 text-center space-x-2">
                                             <button onclick="editPipeline(${idx})" class="text-blue-600 hover:text-blue-900 text-xs"><i class="fas fa-edit"></i> 修改</button>
@@ -667,7 +698,7 @@
             document.getElementById('pipe-id').value = `SNN-${year}-${String(nextNumber).padStart(3, '0')}`;
             document.getElementById('pipe-module').value = 'CASE';
             document.getElementById('pipe-stage').value = '初次接觸';
-            document.getElementById('pipe-owner').value = currentUser === 'Yiyo Pan' ? 'Yiyo' : 'Weivid';
+            populateOwnerSelect('pipe-owner');
             document.getElementById('pipe-date').value = today();
             document.getElementById('pipe-name').value = "";
             document.getElementById('pipe-industry').value = "";
@@ -688,7 +719,7 @@
             document.getElementById('pipe-module').value = p.module;
             document.getElementById('pipe-amount').value = p.amount;
             document.getElementById('pipe-stage').value = p.stage;
-            document.getElementById('pipe-owner').value = p.owner;
+            populateOwnerSelect('pipe-owner',p);
             document.getElementById('pipe-date').value = p.date;
             document.getElementById('pipe-remark').value = p.remark;
             document.getElementById('pipeline-modal').classList.remove('hidden');
@@ -705,12 +736,12 @@
                 module: document.getElementById('pipe-module').value,
                 amount: parseFloat(document.getElementById('pipe-amount').value),
                 stage: document.getElementById('pipe-stage').value,
-                owner: document.getElementById('pipe-owner').value,
+                ...selectedOwner('pipe-owner'),
                 date: document.getElementById('pipe-date').value,
                 remark: document.getElementById('pipe-remark').value.trim()
             };
 
-            if (!item.name || !item.id) { alert('請填寫案件編號與企業名稱'); return; }
+            if (!item.name || !item.id || !item.owner) { alert('請填寫案件編號、企業名稱並選擇負責人'); return; }
             if (!Number.isFinite(item.amount) || item.amount < 0) { alert('請填寫有效的非負金額'); return; }
             if (db.pipeline.some((p, i) => i !== idx && p.id === item.id)) { alert('案件編號已存在，請使用其他編號'); return; }
 
@@ -750,6 +781,7 @@
                                     <th class="p-3">會議主題</th>
                                     <th class="p-3">參與人員</th>
                                     <th class="p-3">Google Meet 連結</th>
+                                    <th class="p-3">實體會議地點 / 地圖</th>
                                     <th class="p-3">會後重點決議</th>
                                     <th class="p-3 text-center">操作</th>
                                 </tr>
@@ -762,6 +794,10 @@
                                         <td class="p-3 font-bold text-navy">${escapeHtml(m.title)}</td>
                                         <td class="p-3 text-xs">${escapeHtml(m.attendees)}</td>
                                         <td class="p-3 text-xs text-blue-600">${meetingUrl(m.link) ? `<a href="${escapeHtml(meetingUrl(m.link))}" target="_blank" rel="noopener noreferrer" class="underline">${escapeHtml(m.link)}</a>` : escapeHtml(m.link || "—")}</td>
+                                        <td class="p-3 text-xs text-gray-600">
+                                            <div>${escapeHtml(m.location || '—')}</div>
+                                            ${mapsUrl(m) ? `<a href="${escapeHtml(mapsUrl(m))}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Google Maps</a>` : ''}
+                                        </td>
                                         <td class="p-3 text-xs text-gray-600">${escapeHtml(m.summary)}</td>
                                         <td class="p-3 text-center space-x-2">
                                             <button onclick="editMeeting(${idx})" class="text-blue-600 hover:text-blue-900 text-xs"><i class="fas fa-edit"></i> 修改</button>
@@ -781,9 +817,12 @@
             document.getElementById('meet-edit-idx').value = -1;
             document.getElementById('meeting-modal-title').innerText = "安排新會議";
             document.getElementById('meet-date').value = today();
-            document.getElementById('meet-time').value = '14:00 - 15:00';
+            setMeetingTime('14:00 - 15:00');
             document.getElementById('meet-attendees').value = currentUser;
             document.getElementById('meet-link').value = '';
+            document.getElementById('meet-location').value = '';
+            document.getElementById('meet-map-link').value = '';
+            updateMeetingMapPreview();
             document.getElementById('meet-title').value = "";
             document.getElementById('meet-summary').value = "";
             document.getElementById('meeting-modal').classList.remove('hidden');
@@ -796,10 +835,13 @@
             document.getElementById('meet-edit-idx').value = idx;
             document.getElementById('meeting-modal-title').innerText = "修改會議";
             document.getElementById('meet-date').value = m.date;
-            document.getElementById('meet-time').value = m.time;
+            setMeetingTime(m.time);
             document.getElementById('meet-title').value = m.title;
             document.getElementById('meet-attendees').value = m.attendees;
             document.getElementById('meet-link').value = m.link;
+            document.getElementById('meet-location').value = m.location || '';
+            document.getElementById('meet-map-link').value = m.mapLink || '';
+            updateMeetingMapPreview();
             document.getElementById('meet-summary').value = m.summary;
             document.getElementById('meeting-modal').classList.remove('hidden');
         }
@@ -810,14 +852,18 @@
             if (!Number.isInteger(idx) || idx < -1 || idx >= db.meetings.length) { alert('資料位置已變更，請重新開啟表單。'); return; }
             const item = {
                 date: document.getElementById('meet-date').value,
-                time: document.getElementById('meet-time').value,
+                time: document.getElementById('meet-start-time').value + ' - ' + document.getElementById('meet-end-time').value,
                 title: document.getElementById('meet-title').value.trim(),
                 attendees: document.getElementById('meet-attendees').value.trim(),
                 link: document.getElementById('meet-link').value.trim(),
+                location: document.getElementById('meet-location').value.trim(),
+                mapLink: document.getElementById('meet-map-link').value.trim(),
                 summary: document.getElementById('meet-summary').value.trim()
             };
+            if (!validMeetingTime(item.time)) { alert('請以半小時為單位選擇開始與結束時間，結束需晚於開始。'); return; }
             if (!item.title || !item.date || !item.time.trim()) { alert('請填寫會議日期、時間與主題'); return; }
-            if (item.link && !meetingUrl(item.link)) { alert('請填寫有效的 HTTPS 會議連結'); return; }
+            if (item.link && !meetingUrl(item.link)) { alert('請填寫有效的 HTTPS 會議連結；實體會議請填寫下方地點，Google Meet 可留空。'); return; }
+            if (item.mapLink && !meetingUrl(item.mapLink)) { alert('請填寫有效的 HTTPS Google Maps 連結，或留空使用地點搜尋。'); return; }
 
             triggerWithReason({
                 name: idx === -1 ? "新增會議: " + item.title : "修改會議: " + item.title,
@@ -862,7 +908,7 @@
                                 ${db.daily.map((d, idx) => `
                                     <tr class="hover:bg-gray-50">
                                         <td class="p-3 font-medium">${escapeHtml(d.date)}</td>
-                                        <td class="p-3 text-center font-bold">${escapeHtml(d.owner)}</td>
+                                        <td class="p-3 text-center font-bold">${escapeHtml(ownerLabel(d))}</td>
                                         <td class="p-3 text-gray-800">${escapeHtml(d.done)}</td>
                                         <td class="p-3 text-red-600 text-xs font-medium">${escapeHtml(d.blockers)}</td>
                                         <td class="p-3 text-gray-600">${escapeHtml(d.next)}</td>
@@ -884,7 +930,7 @@
             document.getElementById('daily-edit-idx').value = -1;
             document.getElementById('daily-modal-title').innerText = "新增每日進度";
             document.getElementById('daily-date').value = today();
-            document.getElementById('daily-owner').value = currentUser === 'Yiyo Pan' ? 'Yiyo' : 'Weivid';
+            populateOwnerSelect('daily-owner');
             document.getElementById('daily-done').value = "";
             document.getElementById('daily-blockers').value = "";
             document.getElementById('daily-next').value = "";
@@ -898,7 +944,7 @@
             document.getElementById('daily-edit-idx').value = idx;
             document.getElementById('daily-modal-title').innerText = "修改每日進度";
             document.getElementById('daily-date').value = d.date;
-            document.getElementById('daily-owner').value = d.owner;
+            populateOwnerSelect('daily-owner',d);
             document.getElementById('daily-done').value = d.done;
             document.getElementById('daily-blockers').value = d.blockers;
             document.getElementById('daily-next').value = d.next;
@@ -911,12 +957,12 @@
             if (!Number.isInteger(idx) || idx < -1 || idx >= db.daily.length) { alert('資料位置已變更，請重新開啟表單。'); return; }
             const item = {
                 date: document.getElementById('daily-date').value,
-                owner: document.getElementById('daily-owner').value,
+                ...selectedOwner('daily-owner'),
                 done: document.getElementById('daily-done').value.trim(),
                 blockers: document.getElementById('daily-blockers').value.trim(),
                 next: document.getElementById('daily-next').value.trim()
             };
-            if (!item.date || !item.done) { alert('請填寫回報日期與今日推進事項'); return; }
+            if (!item.date || !item.done || !item.owner) { alert('請填寫回報日期、今日推進事項並選擇負責人'); return; }
 
             triggerWithReason({
                 name: idx === -1 ? "新增每日進度: " + item.owner : "修改每日進度: " + item.owner,
@@ -934,6 +980,99 @@
                 name: "刪除每日進度 (" + item.owner + ")",
                 resource: 'daily', kind: 'delete', recordId: item._id, recordVersion: item._rev
             }, "請說明您刪除此筆每日進度的原因：");
+        }
+
+        function ownerLabel(item) {
+            const member = (db.members || []).find(m => item.ownerId ? m._id === item.ownerId : (m.name === item.owner || m.legacyAlias === item.owner));
+            return member ? member.name : item.owner;
+        }
+
+        function populateOwnerSelect(id, item = null) {
+            const select = document.getElementById(id);
+            const members = db.members || [];
+            select.innerHTML = '<option value="">請選擇團隊人員</option>' + members.map(m =>
+                `<option value="${escapeHtml(m._id)}">${escapeHtml(m.name)}（${escapeHtml(m.position)}）</option>`).join('');
+            select.dataset.historicalOwner = '';
+            select.dataset.historicalOwnerId = '';
+            const member = item ? members.find(m => item.ownerId ? m._id === item.ownerId : (m.name === item.owner || m.legacyAlias === item.owner))
+                : (members.find(m => m.accountId === currentUser) || members[0]);
+            if (member) select.value = member._id;
+            else if (item && item.owner) {
+                const option = document.createElement('option');
+                option.value = 'history';
+                option.textContent = item.owner + '（歷史負責人）';
+                select.appendChild(option);
+                select.dataset.historicalOwner = item.owner;
+                select.dataset.historicalOwnerId = item.ownerId || '';
+                select.value = 'history';
+            }
+        }
+
+        function selectedOwner(id) {
+            const select = document.getElementById(id);
+            const member = (db.members || []).find(m => m._id === select.value);
+            if (member) return { owner: member.name, ownerId: member._id };
+            if (select.value === 'history') return { owner: select.dataset.historicalOwner, ownerId: select.dataset.historicalOwnerId };
+            return { owner: '', ownerId: '' };
+        }
+
+        function renderMembers(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-500">商務總監、品牌總監與管理員皆可維護團隊姓名、職位，供案件與每日回報選擇負責人。</p>
+                        <button onclick="openMemberModal()" class="bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium"><i class="fas fa-user-plus mr-1"></i>新增團隊人員</button>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead><tr class="bg-navy text-white text-xs"><th class="p-3">姓名</th><th class="p-3">職位</th><th class="p-3 text-center">操作</th></tr></thead>
+                            <tbody class="text-sm divide-y">${(db.members || []).map((m,idx) => `
+                                <tr><td class="p-3 font-bold text-navy">${escapeHtml(m.name)}</td><td class="p-3">${escapeHtml(m.position)}</td>
+                                <td class="p-3 text-center space-x-3"><button onclick="editMember(${idx})" class="text-blue-600">編輯</button><button onclick="deleteMember(${idx})" class="text-red-600">刪除</button></td></tr>`).join('') || '<tr><td colspan="3" class="p-6 text-gray-500 text-center">尚無團隊人員，請先新增。</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        function openMemberModal() {
+            if (!requireLogin()) return;
+            document.getElementById('member-edit-idx').value = -1;
+            document.getElementById('member-modal-title').textContent = '新增團隊人員';
+            document.getElementById('member-name').value = '';
+            document.getElementById('member-position').value = '';
+            document.getElementById('member-modal').classList.remove('hidden');
+            document.getElementById('member-name').focus();
+        }
+
+        function editMember(idx) {
+            if (!requireLogin() || !db.members[idx]) return;
+            const member = db.members[idx];
+            document.getElementById('member-edit-idx').value = idx;
+            document.getElementById('member-modal-title').textContent = '編輯團隊人員';
+            document.getElementById('member-name').value = member.name;
+            document.getElementById('member-position').value = member.position;
+            document.getElementById('member-modal').classList.remove('hidden');
+        }
+
+        function saveMemberData() {
+            if (!requireLogin()) return;
+            const idx = Number(document.getElementById('member-edit-idx').value);
+            if (!Number.isInteger(idx) || idx < -1 || idx >= db.members.length) return;
+            const item = { name: document.getElementById('member-name').value.trim(), position: document.getElementById('member-position').value.trim() };
+            if (!item.name || !item.position) { alert('請填寫姓名與職位。'); return; }
+            triggerWithReason({ name: (idx === -1 ? '新增' : '編輯') + '團隊人員：' + item.name,
+                resource:'members', kind:idx === -1 ? 'create' : 'update', record:item,
+                recordId:idx === -1 ? null : db.members[idx]._id,
+                recordVersion:idx === -1 ? null : db.members[idx]._rev
+            }, '請說明新增或編輯此團隊人員的原因：');
+        }
+
+        function deleteMember(idx) {
+            if (!requireLogin() || !db.members[idx]) return;
+            const member = db.members[idx];
+            triggerWithReason({ name:'刪除團隊人員：'+member.name, resource:'members', kind:'delete',
+                recordId:member._id, recordVersion:member._rev
+            }, `請說明移除「${member.name}」的原因，既有案件與回報紀錄將保留：`);
         }
 
         function renderCatalog(container) {
@@ -1018,6 +1157,54 @@
             } catch (error) { return ''; }
         }
 
+        function validMeetingTime(value) {
+            const match = value.match(/^(\d{2}:(?:00|30))\s*-\s*(\d{2}:(?:00|30))$/);
+            const minutes = time => Number(time.slice(0,2))*60+Number(time.slice(3));
+            return !!match && minutes(match[1]) < 1440 && minutes(match[2]) <= 1440 && minutes(match[2]) > minutes(match[1]);
+        }
+
+        function timeLabel(minutes) {
+            return String(Math.floor(minutes/60)).padStart(2,'0') + ':' + String(minutes%60).padStart(2,'0');
+        }
+
+        function initializeMeetingTimeOptions() {
+            document.getElementById('meet-start-time').innerHTML = '<option value="">請選擇</option>' + Array.from({length:48},(_,i) => `<option value="${timeLabel(i*30)}">${timeLabel(i*30)}</option>`).join('');
+            document.getElementById('meet-end-time').innerHTML = '<option value="">請選擇</option>' + Array.from({length:48},(_,i) => `<option value="${timeLabel((i+1)*30)}">${timeLabel((i+1)*30)}</option>`).join('');
+            setMeetingTime('14:00 - 15:00');
+        }
+
+        function updateMeetingEndOptions() {
+            const start = document.getElementById('meet-start-time').value;
+            const end = document.getElementById('meet-end-time');
+            for (const option of end.options) option.disabled = !option.value || (!!start && option.value <= start);
+            if (start && (!end.value || end.value <= start)) {
+                const next = [...end.options].find(option => !option.disabled);
+                end.value = next ? next.value : '';
+            }
+        }
+
+        function setMeetingTime(value) {
+            const match = validMeetingTime(String(value)) ? String(value).match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/) : null;
+            document.getElementById('meet-start-time').value = match ? match[1] : '';
+            document.getElementById('meet-end-time').value = match ? match[2] : '';
+            document.getElementById('meet-time-hint').textContent = match ? '以半小時為單位，結束時間需晚於開始。' : '原排程：' + value + '。請重新選擇開始與結束時間。';
+            updateMeetingEndOptions();
+        }
+
+        function mapsUrl(meeting) {
+            if (meeting.mapLink) return meetingUrl(meeting.mapLink);
+            const location = String(meeting.location || '').trim();
+            return location ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location) : '';
+        }
+
+        function updateMeetingMapPreview() {
+            const url = mapsUrl({ location: document.getElementById('meet-location').value,
+                mapLink: document.getElementById('meet-map-link').value.trim() });
+            const preview = document.getElementById('meeting-map-preview');
+            preview.href = url || '#';
+            preview.classList.toggle('hidden', !url);
+        }
+
         document.getElementById('login-pin').addEventListener('keydown', event => {
             if (event.key === 'Enter') handleLogin();
         });
@@ -1033,6 +1220,7 @@
             if (sessionToken) await refreshSharedData();
             if (currentUser) document.getElementById('login-overlay').classList.add('hidden');
         }
+        initializeMeetingTimeOptions();
         initializeSharedSession();
         setInterval(() => { if (!document.hidden) refreshSharedData(); }, 10000);
         window.addEventListener('focus', () => refreshSharedData());
