@@ -44,8 +44,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">存取通行碼 (PIN)</label>
-                    <input type="password" id="login-pin" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 tracking-widest" value="8888" maxlength="4">
-                    <p class="text-[11px] text-gray-400 mt-1">系統預設 PIN：8888（僅首次登入有效）</p>
+                    <input type="password" id="login-pin" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 tracking-widest" value="" placeholder="請輸入統一通行碼" maxlength="12">
                 </div>
             </div>
 
@@ -92,7 +91,7 @@
             </div>
             <div class="flex items-center justify-between pt-1 border-t border-blue-900">
                 <button onclick="openChangePinModal()" class="text-blue-200 hover:text-white underline text-xs flex items-center space-x-1">
-                    <i class="fas fa-key mr-1"></i><span>修改登入密碼 (4碼)</span>
+                    <i class="fas fa-key mr-1"></i><span>修改登入密碼</span>
                 </button>
             </div>
             <p class="text-blue-400 text-[10px]">所有異動均強制記錄操作原因</p>
@@ -124,19 +123,19 @@
     <!-- 修改密碼 Modal -->
     <div id="pin-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-[400px]">
-            <h3 class="text-lg font-bold text-navy mb-4"><i class="fas fa-key mr-2 text-blue-600"></i>修改登入密碼 (四碼)</h3>
+            <h3 class="text-lg font-bold text-navy mb-4"><i class="fas fa-key mr-2 text-blue-600"></i>修改登入密碼</h3>
             <div class="space-y-4 mb-6">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">目前密碼</label>
-                    <input type="password" id="old-pin" class="w-full border rounded-lg p-2.5 text-sm" maxlength="4" placeholder="輸入目前 4 碼 PIN">
+                    <input type="password" id="old-pin" class="w-full border rounded-lg p-2.5 text-sm" placeholder="輸入目前密碼">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">新密碼 (4 碼)</label>
-                    <input type="password" id="new-pin" class="w-full border rounded-lg p-2.5 text-sm" maxlength="4" placeholder="輸入新 4 碼 PIN">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">新密碼</label>
+                    <input type="password" id="new-pin" class="w-full border rounded-lg p-2.5 text-sm" placeholder="輸入新密碼">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">確認新密碼</label>
-                    <input type="password" id="confirm-pin" class="w-full border rounded-lg p-2.5 text-sm" maxlength="4" placeholder="再次輸入新 4 碼 PIN">
+                    <input type="password" id="confirm-pin" class="w-full border rounded-lg p-2.5 text-sm" placeholder="再次輸入新密碼">
                 </div>
             </div>
             <div class="flex justify-end space-x-3">
@@ -146,8 +145,8 @@
         </div>
     </div>
 
-    <!-- 通用理由確認 Modal (強制原因紀錄) -->
-    <div id="reason-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <!-- 通用理由確認 Modal (強制原因紀錄 - z-index 提升至 70 確保最上層) -->
+    <div id="reason-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-[70]">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-[450px]">
             <h3 class="text-lg font-bold text-navy mb-2"><i class="fas fa-edit mr-2 text-blue-600"></i>異動原因與紀錄確認</h3>
             <p id="reason-modal-desc" class="text-xs text-gray-500 mb-4">為了保持稽核軌跡，請填寫您進行此項操作（新增/修改/刪除）的具體原因：</p>
@@ -336,12 +335,8 @@
     <script>
         let currentUser = localStorage.getItem('snn_current_user') || null;
         
-        let db = JSON.parse(localStorage.getItem('snn_db_v5')) || {
-            pins: {
-                "Weivid Wu": "8888",
-                "Yiyo Pan": "8888",
-                "Administrator": "8888"
-            },
+        let db = JSON.parse(localStorage.getItem('snn_db_v8')) || {
+            globalPin: "20261101",
             pipeline: [
                 { id: "SNN-2026-001", name: "台祿科技股份有限公司", industry: "電子零組件製造", module: "CASE", amount: 150000, stage: "提案確信中", owner: "Weivid", date: "2026-11-30", remark: "已提交 765K TWD 反漂綠門檻對應說明" },
                 { id: "SNN-2026-002", name: "綠能國際實業", industry: "再生能源", module: "EXEC", amount: 75000, stage: "需求訪談", owner: "Yiyo", date: "2026-12-10", remark: "關注 IFRS S1/S2 對接時程與證據鏈建置" },
@@ -377,11 +372,10 @@
             const identity = document.getElementById('login-identity').value;
             const pin = document.getElementById('login-pin').value;
             
-            if (!db.pins) db.pins = { "Weivid Wu": "8888", "Yiyo Pan": "8888", "Administrator": "8888" };
-            const correctPin = db.pins[identity] || "8888";
+            if (!db.globalPin) db.globalPin = "20261101";
 
-            if (pin !== correctPin) {
-                alert('存取通行碼 (PIN) 錯誤！');
+            if (pin !== db.globalPin) {
+                alert('存取通行碼錯誤！');
                 return;
             }
             currentUser = identity;
@@ -407,15 +401,14 @@
             const newPin = document.getElementById('new-pin').value;
             const confirmPin = document.getElementById('confirm-pin').value;
 
-            if (!db.pins) db.pins = { "Weivid Wu": "8888", "Yiyo Pan": "8888", "Administrator": "8888" };
-            const currentPin = db.pins[currentUser] || "8888";
+            if (!db.globalPin) db.globalPin = "20261101";
 
-            if (oldPin !== currentPin) {
+            if (oldPin !== db.globalPin) {
                 alert('目前密碼錯誤！');
                 return;
             }
-            if (newPin.length !== 4 || isNaN(newPin)) {
-                alert('新密碼必須為 4 位數字！');
+            if (!newPin || newPin.length < 4) {
+                alert('新密碼長度至少需要 4 碼！');
                 return;
             }
             if (newPin !== confirmPin) {
@@ -423,14 +416,14 @@
                 return;
             }
 
-            db.pins[currentUser] = newPin;
+            db.globalPin = newPin;
             saveDb();
-            alert('登入密碼修改成功！');
+            alert('系統統一通行碼修改成功！');
             document.getElementById('pin-modal').classList.add('hidden');
         }
 
         function saveDb() {
-            localStorage.setItem('snn_db_v5', JSON.stringify(db));
+            localStorage.setItem('snn_db_v8', JSON.stringify(db));
             localStorage.setItem('snn_current_user', currentUser);
             updateUserDisplay();
         }
@@ -475,6 +468,13 @@
         }
 
         function triggerWithReason(callback, desc = "請填寫操作原因：") {
+            // 立即關閉所有功能表單 Modal，避免覆蓋
+            document.getElementById('pipeline-modal').classList.add('hidden');
+            document.getElementById('meeting-modal').classList.add('hidden');
+            document.getElementById('daily-modal').classList.add('hidden');
+            document.getElementById('kpi-modal').classList.add('hidden');
+            document.getElementById('pin-modal').classList.add('hidden');
+
             document.getElementById('reason-modal-desc').innerText = desc;
             document.getElementById('action-reason-input').value = '';
             document.getElementById('reason-modal').classList.remove('hidden');
@@ -656,7 +656,6 @@
                 func: () => {
                     if (idx === -1) db.pipeline.push(item);
                     else db.pipeline[idx] = item;
-                    document.getElementById('pipeline-modal').classList.add('hidden');
                 }
             }, "請說明您新增或修改此客戶案件的原因：");
         }
@@ -753,7 +752,6 @@
                 func: () => {
                     if (idx === -1) db.meetings.push(item);
                     else db.meetings[idx] = item;
-                    document.getElementById('meeting-modal').classList.add('hidden');
                 }
             }, "請說明您新增或修改此會議行程的原因：");
         }
@@ -847,7 +845,6 @@
                 func: () => {
                     if (idx === -1) db.daily.unshift(item);
                     else db.daily[idx] = item;
-                    document.getElementById('daily-modal').classList.add('hidden');
                 }
             }, "請說明您新增或修改此每日進度的原因：");
         }
@@ -956,7 +953,6 @@
                 func: () => {
                     if (idx === -1) db.kpi.push(item);
                     else db.kpi[idx] = item;
-                    document.getElementById('kpi-modal').classList.add('hidden');
                 }
             }, "請說明您新增或修改此 KPI 角色與目標的原因：");
         }
