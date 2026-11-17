@@ -50,8 +50,8 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">存取通行碼 (PIN)</label>
                     <input type="password" id="login-pin" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 tracking-widest" placeholder="請輸入此角色的 PIN / 密碼" maxlength="64" autocomplete="current-password">
-                    <p class="text-xs text-gray-500 mt-2">各角色首次登入預設 PIN：8888。修改後請使用該角色的新密碼。</p>
-                    <p class="text-xs text-gray-500 mt-1">密碼與資料保存在目前瀏覽器，不會自動同步至其他裝置。</p>
+                    <p class="text-xs text-gray-500 mt-2">各角色首次登入預設 PIN：8888。修改後，所有裝置均使用該角色的新密碼。</p>
+                    <p class="text-xs text-gray-500 mt-1">團隊共用雲端資料，登入後即可查看並更新相同的客戶、會議與每日回報。</p>
                 </div>
             </div>
 
@@ -70,7 +70,7 @@
         </div>
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto" id="sidebar-nav">
             <a onclick="switchTab('dashboard')" data-tab="dashboard" class="nav-link active flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
-                <i class="fas fa-chart-line w-6"></i> 業務追蹤看板
+                <i class="fas fa-chart-line w-6"></i> 團隊業務看板
             </a>
             <a onclick="switchTab('pipeline')" data-tab="pipeline" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-handshake w-6"></i> 客戶與進度明細
@@ -80,9 +80,6 @@
             </a>
             <a onclick="switchTab('daily')" data-tab="daily" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-clipboard-list w-6"></i> 每日進度回報
-            </a>
-            <a onclick="switchTab('kpi')" data-tab="kpi" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
-                <i class="fas fa-bullseye w-6"></i> 業務績效與 KPI
             </a>
             <a onclick="switchTab('catalog')" data-tab="catalog" class="nav-link flex items-center px-4 py-3 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-boxes w-6"></i> 模組定價與規格
@@ -102,8 +99,8 @@
                 </button>
             </div>
             <p class="text-blue-400 text-[10px]">所有異動均強制記錄操作原因</p>
-            <p id="save-status" class="text-xs text-blue-200" role="status" aria-live="polite">資料保存在目前瀏覽器</p>
-            <p class="text-blue-400 text-xs">修正版 · 2026.11.17</p>
+            <p id="save-status" class="text-xs text-blue-200" role="status" aria-live="polite">尚未連接共用資料</p>
+            <p class="text-blue-400 text-xs">團隊共用版 · 2026.11.17</p>
         </div>
     </aside>
 
@@ -112,7 +109,7 @@
         <!-- 頂部列 -->
         <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10">
             <div class="flex items-center space-x-3">
-                <span id="page-title" class="text-xl font-bold text-navy">業務追蹤看板</span>
+                <span id="page-title" class="text-xl font-bold text-navy">團隊業務看板</span>
                 <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">SNN.TW Institutional Terminal</span>
             </div>
             <div class="flex items-center space-x-4">
@@ -320,106 +317,18 @@
         </div>
     </div>
 
-    <!-- KPI Modal -->
-    <div id="kpi-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-[450px]">
-            <h3 id="kpi-modal-title" class="text-lg font-bold text-navy mb-4">新增團隊成員 KPI</h3>
-            <input type="hidden" id="kpi-edit-idx" value="-1">
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-700 mb-1">姓名 (例如: Weivid Wu / Yiyo Pan)</label>
-                <input type="text" id="kpi-name" class="w-full border rounded-lg p-2 text-sm" placeholder="全名">
-            </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-700 mb-1">職稱角色</label>
-                <input type="text" id="kpi-role" class="w-full border rounded-lg p-2 text-sm" placeholder="例如: 商務總監 / 品牌總監">
-            </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-700 mb-1">目標簽約金額 (TWD)</label>
-                <input type="number" id="kpi-target" class="w-full border rounded-lg p-2 text-sm" value="1000000">
-            </div>
-            <div class="flex justify-end space-x-3">
-                <button onclick="document.getElementById('kpi-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg text-sm text-gray-600">取消</button>
-                <button onclick="saveKpiData()" class="px-4 py-2 bg-navy text-white rounded-lg text-sm">儲存設定</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        const DB_KEY = 'snn_db_v8'; // 保留線上既有資料鍵，更新程式不重設資料。
+        const API_URL = (location.hostname === 'biz.snn.tw' || location.hostname.endsWith('.github.io'))
+            ? 'https://snn-biz-shared.anderson82kh.chatgpt.site/api/team' : '/api/team';
         const IDENTITIES = ['Weivid Wu', 'Yiyo Pan', 'Administrator'];
-        let storageLoadError = null;
         let currentUser = null;
-
-        const defaultDb = {
-            pins: Object.fromEntries(IDENTITIES.map(name => [name, '8888'])),
-            pipeline: [
-                { id: "SNN-2026-001", name: "台祿科技股份有限公司", industry: "電子零組件製造", module: "CASE", amount: 150000, stage: "提案確信中", owner: "Weivid", date: "2026-11-30", remark: "已提交 765K TWD 反漂綠門檻對應說明" },
-                { id: "SNN-2026-002", name: "綠能國際實業", industry: "再生能源", module: "EXEC", amount: 75000, stage: "需求訪談", owner: "Yiyo", date: "2026-12-10", remark: "關注 IFRS S1/S2 對接時程與證據鏈建置" },
-                { id: "SNN-2026-003", name: "泰山生技企業", industry: "生技醫療", module: "EKS", amount: 50000, stage: "合約審閱中", owner: "Weivid", date: "2026-11-25", remark: "進行知識圖譜結構化評估" },
-                { id: "SNN-2026-004", name: "萬邦精密機械", industry: "傳統機械", module: "CAE", amount: 20000, stage: "初次接觸", owner: "Yiyo", date: "2026-12-20", remark: "供應鏈碳盤查與證據鏈佈署諮詢" }
-            ],
-            meetings: [
-                { id: 1, date: "2026-11-18", time: "14:00 - 15:00", title: "台祿科技提案確信說明會", attendees: "Weivid, 台祿科技代表", link: "meet.google.com/abc-defg-hij", summary: "說明 765K 門檻對應機制，客戶表示高度興趣" },
-                { id: 2, date: "2026-11-19", time: "10:00 - 11:00", title: "綠能國際實業需求訪談", attendees: "Yiyo, 綠能國際 ESG 主管", link: "meet.google.com/xyz-uvwx-rst", summary: "深入探討 IFRS S1/S2 證據鏈佈署時程" }
-            ],
-            daily: [
-                { id: 1, date: "2026-11-16", owner: "Weivid", done: "完成台祿科技 765K 門檻反漂綠說明文件提交", blockers: "無", next: "跟進台祿科技審閱回饋與預約下次會議" },
-                { id: 2, date: "2026-11-16", owner: "Yiyo", done: "聯繫綠能國際實業窗口，確認 IFRS S1/S2 對接時程", blockers: "需確認技術端對接文件版本", next: "安排綠能國際線上需求訪談會議" }
-            ],
-            kpi: [
-                { id: 1, name: "Weivid Wu", role: "商務總監", target: 1000000 },
-                { id: 2, name: "Yiyo Pan", role: "品牌總監", target: 1000000 }
-            ],
-            auditLogs: [
-                { time: "2026-11-16 09:00", user: "Anderson Yu", action: "初始化系統", reason: "系統建置與權限架構設定" }
-            ],
-            catalog: [
-                { code: "CAE", name: "企業永續資產累積模組", price: 20000, desc: "<strong>01 · CAE</strong><br>Corporate Announcement Evidence<br>企業公告證據紀錄<br><em>What · 企業做了什麼</em>" },
-                { code: "EKS", name: "知識結構化系統模組", price: 50000, desc: "<strong>02 · EKS</strong><br>Enterprise Knowledge & Practice<br>企業方法與實務<br><em>How · 企業怎麼做</em>" },
-                { code: "EXEC", name: "執行級治理強化模組", price: 75000, desc: "<strong>03 · EXEC</strong><br>Executive Decision Evidence Record<br>高階主管決策證據紀錄<br><em>Why · 企業為什麼做</em>" },
-                { code: "CASE", name: "綜合案例與確信通行模組", price: 150000, desc: "<strong>04 · CASE</strong><br>Industry Case Study<br>產業案例研究<br><em>End-to-End Governance Trajectory · 特定專案的治理軌跡如何形成</em>" }
-            ]
-        };
-
-        function readStoredDb(key) {
-            const raw = localStorage.getItem(key);
-            if (raw === null) return null;
-            const value = JSON.parse(raw);
-            if (!value || typeof value !== 'object' || Array.isArray(value)) {
-                throw new Error('儲存資料格式異常');
-            }
-            return value;
-        }
-
-        function loadDb() {
-            try {
-                const saved = readStoredDb(DB_KEY) || readStoredDb('snn_db_v5');
-                const data = saved || JSON.parse(JSON.stringify(defaultDb));
-                const legacyPins = saved && !saved.pins ? readStoredDb('snn_db_v5')?.pins : null;
-                const savedPins = data.pins || legacyPins || {};
-                data.pins = Object.fromEntries(IDENTITIES.map(name => [name,
-                    typeof savedPins[name] === 'string' && savedPins[name].length >= 4
-                        ? savedPins[name] : '8888'
-                ]));
-                delete data.globalPin; // 舊版共用通行碼停用，各角色分開儲存。
-                for (const key of ['pipeline', 'meetings', 'daily', 'kpi', 'auditLogs', 'catalog']) {
-                    if (data[key] === undefined) data[key] = [];
-                    if (!Array.isArray(data[key])) throw new Error('儲存資料欄位格式異常');
-                }
-                const savedUser = localStorage.getItem('snn_current_user');
-                currentUser = IDENTITIES.includes(savedUser) ? savedUser : null;
-                return data;
-            } catch (error) {
-                storageLoadError = error;
-                currentUser = null;
-                return JSON.parse(JSON.stringify(defaultDb));
-            }
-        }
-
-        let db = loadDb();
+        let sessionToken = '';
+        try { sessionToken = sessionStorage.getItem('snn_team_session') || ''; } catch (error) {}
+        let db = { pipeline: [], meetings: [], daily: [], catalog: [], auditLogs: [] };
         let pendingAction = null;
         let reasonSourceModal = null;
         let submittingAction = false;
+        let refreshing = false;
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -427,126 +336,133 @@
             }[char]));
         }
 
-        function showStorageError() {
-            const message = storageLoadError
-                ? '無法讀取瀏覽器中的既有資料，已停止寫入以保留原始內容。請確認本站儲存權限後重新整理。'
-                : '儲存失敗，本次變更尚未存檔。請確認瀏覽器允許本站儲存資料且有可用空間，再重試。';
+        function setStatus(message, failed = false) {
+            document.getElementById('save-status').textContent = message;
             const status = document.getElementById('storage-status');
-            status.textContent = message;
-            status.classList.remove('hidden');
-            document.getElementById('save-status').textContent = '尚未存檔，請重試';
-            alert(message);
+            status.textContent = failed ? message : '';
+            status.classList.toggle('hidden', !failed);
+        }
+
+        function clearSession() {
+            sessionToken = '';
+            currentUser = null;
+            pendingAction = null;
+            reasonSourceModal = null;
+            try { sessionStorage.removeItem('snn_team_session'); } catch (error) {}
+            document.querySelectorAll('[id$="-modal"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('content-container').innerHTML = '';
+            document.getElementById('login-pin').value = '';
+            document.getElementById('login-overlay').classList.remove('hidden');
+            updateUserDisplay();
+        }
+
+        async function api(action, payload = {}) {
+            let response;
+            try {
+                response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: 'Bearer ' + sessionToken } : {}) },
+                    body: JSON.stringify({ ...payload, action }),
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(20000)
+                });
+            } catch (error) {
+                throw new Error('無法連接共用服務，本次操作尚未確認儲存。請確認網路後重試。');
+            }
+            let result;
+            try { result = await response.json(); }
+            catch (error) { throw new Error('共用服務回應異常，請稍後重試。'); }
+            if (!response.ok) {
+                if (response.status === 401 && action !== 'login') clearSession();
+                const error = new Error(result.error || '操作失敗，請重試。');
+                error.status = response.status;
+                throw error;
+            }
+            return result;
         }
 
         function requireLogin() {
-            if (IDENTITIES.includes(currentUser)) return true;
+            if (IDENTITIES.includes(currentUser) && sessionToken) return true;
             document.getElementById('login-overlay').classList.remove('hidden');
             alert('請先登入後再操作。');
             return false;
         }
 
-        function requireKpiAccess() {
-            if (!requireLogin()) return false;
-            if (currentUser === 'Weivid Wu' || currentUser === 'Administrator') return true;
-            alert('僅商務總監與系統管理員可修改 KPI。');
-            return false;
-        }
-
-        function handleLogin() {
-            if (storageLoadError) { showStorageError(); return; }
+        async function handleLogin() {
             const identity = document.getElementById('login-identity').value;
             const pin = document.getElementById('login-pin').value;
-            if (!IDENTITIES.includes(identity) || pin !== db.pins[identity]) {
-                alert('存取通行碼錯誤！');
-                return;
-            }
-            const previousUser = currentUser;
-            currentUser = identity;
+            const button = document.querySelector('[onclick="handleLogin()"]');
+            if (button.disabled) return;
+            button.disabled = true;
             try {
-                localStorage.setItem('snn_current_user', identity);
-            } catch (error) {
-                currentUser = previousUser;
-                showStorageError();
-                return;
-            }
-            document.getElementById('login-pin').value = '';
-            document.getElementById('login-overlay').classList.add('hidden');
-            updateUserDisplay();
-            switchTab('dashboard');
+                const result = await api('login', { identity, pin });
+                sessionToken = result.token;
+                currentUser = result.user;
+                db = result.data;
+                try { sessionStorage.setItem('snn_team_session', sessionToken); } catch (error) {}
+                document.getElementById('login-pin').value = '';
+                document.getElementById('login-overlay').classList.add('hidden');
+                updateUserDisplay();
+                switchTab('dashboard');
+                setStatus('已連接團隊共用資料');
+            } catch (error) { alert(error.message); }
+            finally { button.disabled = false; }
         }
 
-        function logout() {
-            currentUser = null;
-            pendingAction = null;
-            reasonSourceModal = null;
-            document.querySelectorAll('[id$="-modal"]').forEach(el => el.classList.add('hidden'));
-            try { localStorage.removeItem('snn_current_user'); }
-            catch (error) { showStorageError(); }
-            document.getElementById('login-pin').value = '';
-            document.getElementById('content-container').innerHTML = '';
-            updateUserDisplay();
-            document.getElementById('login-overlay').classList.remove('hidden');
+        async function logout() {
+            try { if (sessionToken) await api('logout'); }
+            catch (error) {}
+            clearSession();
+            setStatus('已登出');
             document.getElementById('login-pin').focus();
         }
 
         function openChangePinModal() {
             if (!requireLogin()) return;
             document.getElementById('pin-role-label').textContent = '修改角色：' + currentUser;
-            document.getElementById('old-pin').value = "";
-            document.getElementById('new-pin').value = "";
-            document.getElementById('confirm-pin').value = "";
+            for (const id of ['old-pin', 'new-pin', 'confirm-pin']) document.getElementById(id).value = '';
             document.getElementById('pin-modal').classList.remove('hidden');
             document.getElementById('old-pin').focus();
         }
 
-        function submitChangePin() {
+        async function submitChangePin() {
             if (!requireLogin()) return;
             const oldPin = document.getElementById('old-pin').value;
             const newPin = document.getElementById('new-pin').value;
             const confirmPin = document.getElementById('confirm-pin').value;
-
-            if (oldPin !== db.pins[currentUser]) {
-                alert('目前密碼錯誤！');
-                return;
-            }
-            if (newPin.length < 4 || newPin.length > 64 || !newPin.trim()) {
-                alert('新密碼需為 4 至 64 字元，不能全部是空白！');
-                return;
-            }
-            if (newPin !== confirmPin) {
-                alert('新密碼與確認密碼不符！');
-                return;
-            }
-
-            const nextDb = JSON.parse(JSON.stringify(db));
-            nextDb.pins[currentUser] = newPin;
-            nextDb.auditLogs.unshift({ time: new Date().toLocaleString('zh-TW'), user: currentUser,
-                action: '修改登入密碼', reason: '使用者修改自己的登入密碼' });
-            if (!saveDb(nextDb)) return;
-            document.getElementById('old-pin').value = '';
-            document.getElementById('new-pin').value = '';
-            document.getElementById('confirm-pin').value = '';
-            document.getElementById('pin-modal').classList.add('hidden');
-            alert('此角色的登入密碼已儲存，下次登入請使用新密碼。');
-        }
-
-        function saveDb(nextDb = db) {
-            if (storageLoadError) { showStorageError(); return false; }
+            if (newPin.length < 4 || newPin.length > 64 || !newPin.trim()) { alert('新密碼需為 4 至 64 字元，不能全部是空白。'); return; }
+            if (newPin !== confirmPin) { alert('新密碼與確認密碼不符。'); return; }
+            const button = document.querySelector('[onclick="submitChangePin()"]');
+            if (button.disabled) return;
+            button.disabled = true;
             try {
-                localStorage.setItem(DB_KEY, JSON.stringify(nextDb));
-            } catch (error) {
-                showStorageError();
-                return false;
-            }
-            db = nextDb;
-            document.getElementById('storage-status').classList.add('hidden');
-            document.getElementById('save-status').textContent = '已存檔 · ' + new Date().toLocaleTimeString('zh-TW');
-            return true;
+                await api('pin', { oldPin, newPin });
+                for (const id of ['old-pin', 'new-pin', 'confirm-pin']) document.getElementById(id).value = '';
+                document.getElementById('pin-modal').classList.add('hidden');
+                await refreshSharedData();
+                alert('此角色的密碼已儲存至共用服務。下次在任何裝置登入，請使用新密碼。');
+            } catch (error) { alert(error.message); }
+            finally { button.disabled = false; }
         }
 
         function updateUserDisplay() {
             document.getElementById('current-user-display').innerText = currentUser ? `當前身分: ${currentUser}` : '尚未登入';
             document.getElementById('user-avatar').innerText = currentUser ? currentUser.charAt(0) : '—';
+        }
+
+        async function refreshSharedData() {
+            if (refreshing || !sessionToken || pendingAction || submittingAction) return;
+            if (document.querySelector('[id$="-modal"]:not(.hidden)')) return;
+            refreshing = true;
+            try {
+                const result = await api('state');
+                db = result.data;
+                currentUser = result.user;
+                updateUserDisplay();
+                renderCurrentTab();
+                setStatus('雲端已同步 · ' + new Date().toLocaleTimeString('zh-TW'));
+            } catch (error) { setStatus(error.message, true); }
+            finally { refreshing = false; }
         }
 
         let currentTab = 'dashboard';
@@ -558,15 +474,14 @@
             if (targetLink) targetLink.classList.add('active');
             
             const titles = {
-                'dashboard': '業務追蹤看板',
+                'dashboard': '團隊業務看板',
                 'pipeline': '客戶與進度明細',
                 'calendar': '會議日曆安排',
                 'daily': '每日進度回報',
-                'kpi': '業務績效與 KPI / 人員管理',
                 'catalog': '模組定價與規格',
                 'audit': '異動稽核紀錄 (Audit Log)'
             };
-            document.getElementById('page-title').innerText = titles[tab] || '業務追蹤看板';
+            document.getElementById('page-title').innerText = titles[tab] || '團隊業務看板';
             renderCurrentTab();
         }
 
@@ -578,80 +493,80 @@
             else if (currentTab === 'pipeline') renderPipeline(container);
             else if (currentTab === 'calendar') renderCalendar(container);
             else if (currentTab === 'daily') renderDaily(container);
-            else if (currentTab === 'kpi') renderKpi(container);
             else if (currentTab === 'catalog') renderCatalog(container);
             else if (currentTab === 'audit') renderAudit(container);
         }
 
-        function triggerWithReason(callback, desc = "請填寫操作原因：") {
-            if (!requireLogin()) return;
-            if (pendingAction || submittingAction || !callback || typeof callback.func !== 'function') return;
-            reasonSourceModal = ['pipeline-modal', 'meeting-modal', 'daily-modal', 'kpi-modal']
+        function triggerWithReason(action, desc = '請填寫操作原因：') {
+            if (!requireLogin() || pendingAction || submittingAction) return;
+            reasonSourceModal = ['pipeline-modal', 'meeting-modal', 'daily-modal']
                 .find(id => !document.getElementById(id).classList.contains('hidden')) || null;
-            // 原表單保留於下層，取消原因確認後可繼續編輯。
             document.getElementById('reason-modal-desc').innerText = desc;
             document.getElementById('action-reason-input').value = '';
-            pendingAction = callback;
+            pendingAction = { ...action, requestId: crypto.randomUUID() };
             document.getElementById('reason-modal').classList.remove('hidden');
             document.getElementById('action-reason-input').focus();
         }
 
         function closeReasonModal() {
+            if (submittingAction) return;
             document.getElementById('reason-modal').classList.add('hidden');
             pendingAction = null;
             reasonSourceModal = null;
         }
 
-        function submitWithReason() {
+        async function submitWithReason() {
             if (submittingAction || !requireLogin() || !pendingAction) return;
             const reason = document.getElementById('action-reason-input').value.trim();
-            if (!reason) {
-                alert('請務必填寫操作原因與紀錄！');
-                return;
-            }
-            const action = pendingAction; // 先保存動作，成功後才清除。
-            const previousDb = db;
+            if (!reason) { alert('請務必填寫操作原因與紀錄。'); return; }
+            const action = pendingAction;
             const sourceModal = reasonSourceModal;
+            const button = document.querySelector('[onclick="submitWithReason()"]');
             submittingAction = true;
-            db = JSON.parse(JSON.stringify(previousDb));
+            button.disabled = true;
             try {
-                if (action.authorize && !action.authorize()) { db = previousDb; return; }
-                action.func();
-                db.auditLogs.unshift({ time: new Date().toLocaleString('zh-TW'), user: currentUser,
-                    action: action.name || '資料異動', reason });
-                if (!saveDb(db)) { db = previousDb; return; }
+                const result = await api('mutate', { ...action, reason });
+                db = result.data;
+                submittingAction = false;
+                closeReasonModal();
+                if (sourceModal) document.getElementById(sourceModal).classList.add('hidden');
+                renderCurrentTab();
+                setStatus('已儲存至團隊共用資料 · ' + new Date().toLocaleTimeString('zh-TW'));
             } catch (error) {
-                db = previousDb;
-                alert('本次異動未完成，資料尚未變更，請重試。');
-                return;
+                setStatus(error.message, true);
+                if (error.status === 409) {
+                    submittingAction = false;
+                    closeReasonModal();
+                    if (sourceModal) document.getElementById(sourceModal).classList.add('hidden');
+                    await refreshSharedData();
+                }
+                alert(error.message);
             } finally {
                 submittingAction = false;
+                button.disabled = false;
             }
-            closeReasonModal();
-            if (sourceModal) document.getElementById(sourceModal).classList.add('hidden');
-            renderCurrentTab();
         }
 
         function renderDashboard(container) {
-            let totalTarget = db.kpi.reduce((acc, k) => acc + k.target, 0);
+            let totalCases = db.pipeline.length;
             let totalClosed = db.pipeline.filter(p => p.stage === '已成交').reduce((acc, p) => acc + p.amount, 0);
             let totalPotential = db.pipeline.filter(p => p.stage !== '已成交' && p.stage !== '已暫緩').reduce((acc, p) => acc + p.amount, 0);
-            let rate = totalTarget > 0 ? (totalClosed / totalTarget * 100).toFixed(1) : 0;
+            let activeCases = db.pipeline.filter(p => p.stage !== '已成交' && p.stage !== '已暫緩').length;
 
             container.innerHTML = `
                 <div class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">總目標簽約金額</div>
-                            <div class="text-2xl font-extrabold text-navy mt-2">$${totalTarget.toLocaleString()} TWD</div>
+                            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">客戶案件總數</div>
+                            <div class="text-2xl font-extrabold text-navy mt-2">${totalCases} 件</div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">已實現成交金額</div>
                             <div class="text-2xl font-extrabold text-green-600 mt-2">$${totalClosed.toLocaleString()} TWD</div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">整體目標達成率</div>
-                            <div class="text-2xl font-extrabold text-blue-600 mt-2">${rate}%</div>
+                            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">推進中案件</div>
+                            <div class="text-2xl font-extrabold text-blue-600 mt-2">${activeCases} 件</div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">總潛在商機水庫</div>
@@ -801,10 +716,9 @@
 
             triggerWithReason({
                 name: idx === -1 ? "新增客戶案件: " + item.name : "修改客戶案件: " + item.name,
-                func: () => {
-                    if (idx === -1) db.pipeline.push(item);
-                    else db.pipeline[idx] = { ...db.pipeline[idx], ...item };
-                }
+                resource: 'pipeline', kind: idx === -1 ? 'create' : 'update', record: item,
+                recordId: idx === -1 ? null : db.pipeline[idx]._id,
+                recordVersion: idx === -1 ? null : db.pipeline[idx]._rev
             }, "請說明您新增或修改此客戶案件的原因：");
         }
 
@@ -814,9 +728,7 @@
             if (!item) return;
             triggerWithReason({
                 name: "刪除客戶案件: " + item.name,
-                func: () => {
-                    db.pipeline.splice(idx, 1);
-                }
+                resource: 'pipeline', kind: 'delete', recordId: item._id, recordVersion: item._rev
             }, `請說明您刪除客戶案件「${item.name}」的原因：`);
         }
 
@@ -909,10 +821,9 @@
 
             triggerWithReason({
                 name: idx === -1 ? "新增會議: " + item.title : "修改會議: " + item.title,
-                func: () => {
-                    if (idx === -1) db.meetings.push(item);
-                    else db.meetings[idx] = { ...db.meetings[idx], ...item };
-                }
+                resource: 'meetings', kind: idx === -1 ? 'create' : 'update', record: item,
+                recordId: idx === -1 ? null : db.meetings[idx]._id,
+                recordVersion: idx === -1 ? null : db.meetings[idx]._rev
             }, "請說明您新增或修改此會議行程的原因：");
         }
 
@@ -922,9 +833,7 @@
             if (!item) return;
             triggerWithReason({
                 name: "刪除會議: " + item.title,
-                func: () => {
-                    db.meetings.splice(idx, 1);
-                }
+                resource: 'meetings', kind: 'delete', recordId: item._id, recordVersion: item._rev
             }, `請說明您刪除會議「${item.title}」的原因：`);
         }
 
@@ -1011,10 +920,9 @@
 
             triggerWithReason({
                 name: idx === -1 ? "新增每日進度: " + item.owner : "修改每日進度: " + item.owner,
-                func: () => {
-                    if (idx === -1) db.daily.unshift(item);
-                    else db.daily[idx] = { ...db.daily[idx], ...item };
-                }
+                resource: 'daily', kind: idx === -1 ? 'create' : 'update', record: item,
+                recordId: idx === -1 ? null : db.daily[idx]._id,
+                recordVersion: idx === -1 ? null : db.daily[idx]._rev
             }, "請說明您新增或修改此每日進度的原因：");
         }
 
@@ -1024,128 +932,8 @@
             if (!item) return;
             triggerWithReason({
                 name: "刪除每日進度 (" + item.owner + ")",
-                func: () => {
-                    db.daily.splice(idx, 1);
-                }
+                resource: 'daily', kind: 'delete', recordId: item._id, recordVersion: item._rev
             }, "請說明您刪除此筆每日進度的原因：");
-        }
-
-        function renderKpi(container) {
-            const isAuthorized = (currentUser === 'Weivid Wu' || currentUser === 'Administrator');
-            
-            container.innerHTML = `
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <div>
-                            <h4 class="font-bold text-navy text-sm"><i class="fas fa-shield-alt mr-2 text-blue-600"></i>權限安全提示</h4>
-                            <p class="text-xs text-gray-600 mt-1">根據規範，「業務績效與 KPI / 人員管理」僅限 商務總監 (Weivid Wu) 與系統管理員 (Administrator) 進行角色新增、刪除與編輯。</p>
-                        </div>
-                        ${isAuthorized ? `
-                            <button onclick="openKpiModal()" class="bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-800 flex items-center space-x-2 shadow-sm">
-                                <i class="fas fa-user-plus"></i> <span>新增團隊角色/目標</span>
-                            </button>
-                        ` : `
-                            <span class="text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-bold">目前身分 (${currentUser}) 無法編輯 KPI</span>
-                        `}
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-navy text-white text-xs uppercase">
-                                    <th class="p-3">負責業務 / 成員</th>
-                                    <th class="p-3">職稱角色</th>
-                                    <th class="p-3 text-right">目標簽約金額 (TWD)</th>
-                                    <th class="p-3 text-right">已成交金額 (TWD)</th>
-                                    <th class="p-3 text-center">達成率</th>
-                                    <th class="p-3 text-right">潛在商機 (TWD)</th>
-                                    <th class="p-3 text-center">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm divide-y">
-                                ${db.kpi.map((k, idx) => {
-                                    let closed = db.pipeline.filter(p => p.owner.toLowerCase() === k.name.split(' ')[0].toLowerCase() && p.stage === '已成交').reduce((acc, p) => acc + p.amount, 0);
-                                    let potential = db.pipeline.filter(p => p.owner.toLowerCase() === k.name.split(' ')[0].toLowerCase() && p.stage !== '已成交' && p.stage !== '已暫緩').reduce((acc, p) => acc + p.amount, 0);
-                                    let rate = k.target > 0 ? (closed / k.target * 100).toFixed(1) : 0;
-                                    return `
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="p-3 font-bold text-navy">${escapeHtml(k.name)}</td>
-                                            <td class="p-3 text-xs"><span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-semibold">${escapeHtml(k.role)}</span></td>
-                                            <td class="p-3 text-right font-medium">$${k.target.toLocaleString()}</td>
-                                            <td class="p-3 text-right text-green-600 font-semibold">$${closed.toLocaleString()}</td>
-                                            <td class="p-3 text-center font-bold text-blue-600">${rate}%</td>
-                                            <td class="p-3 text-right text-indigo-600">$${potential.toLocaleString()}</td>
-                                            <td class="p-3 text-center space-x-2">
-                                                ${isAuthorized ? `
-                                                    <button onclick="editKpi(${idx})" class="text-blue-600 hover:text-blue-900 text-xs"><i class="fas fa-edit"></i> 編輯</button>
-                                                    <button onclick="deleteKpi(${idx})" class="text-red-600 hover:text-red-900 text-xs"><i class="fas fa-trash"></i> 刪除</button>
-                                                ` : `<span class="text-xs text-gray-400">權限鎖定</span>`}
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        function openKpiModal() {
-            if (!requireKpiAccess()) return;
-            document.getElementById('kpi-edit-idx').value = -1;
-            document.getElementById('kpi-modal-title').innerText = "新增團隊成員 KPI";
-            document.getElementById('kpi-name').value = '';
-            document.getElementById('kpi-role').value = '';
-            document.getElementById('kpi-target').value = '1000000';
-            document.getElementById('kpi-modal').classList.remove('hidden');
-        }
-
-        function editKpi(idx) {
-            if (!requireKpiAccess()) return;
-            if (!db.kpi[idx]) return;
-            const k = db.kpi[idx];
-            document.getElementById('kpi-edit-idx').value = idx;
-            document.getElementById('kpi-modal-title').innerText = "編輯團隊成員 KPI";
-            document.getElementById('kpi-name').value = k.name;
-            document.getElementById('kpi-role').value = k.role;
-            document.getElementById('kpi-target').value = k.target;
-            document.getElementById('kpi-modal').classList.remove('hidden');
-        }
-
-        function saveKpiData() {
-            if (!requireKpiAccess()) return;
-            const idx = parseInt(document.getElementById('kpi-edit-idx').value);
-            if (!Number.isInteger(idx) || idx < -1 || idx >= db.kpi.length) { alert('資料位置已變更，請重新開啟表單。'); return; }
-            const item = {
-                name: document.getElementById('kpi-name').value.trim(),
-                role: document.getElementById('kpi-role').value.trim(),
-                target: parseFloat(document.getElementById('kpi-target').value)
-            };
-            if (!item.name || !item.role) { alert('請填寫姓名與職稱角色'); return; }
-            if (!Number.isFinite(item.target) || item.target < 0) { alert('請填寫有效的非負目標金額'); return; }
-
-            triggerWithReason({
-                authorize: requireKpiAccess,
-                name: idx === -1 ? "新增KPI角色: " + item.name : "修改KPI角色: " + item.name,
-                func: () => {
-                    if (idx === -1) db.kpi.push(item);
-                    else db.kpi[idx] = { ...db.kpi[idx], ...item };
-                }
-            }, "請說明您新增或修改此 KPI 角色與目標的原因：");
-        }
-
-        function deleteKpi(idx) {
-            if (!requireKpiAccess()) return;
-            const item = db.kpi[idx];
-            if (!item) return;
-            triggerWithReason({
-                authorize: requireKpiAccess,
-                name: "刪除KPI角色: " + item.name,
-                func: () => {
-                    db.kpi.splice(idx, 1);
-                }
-            }, `請說明您刪除 KPI 成員「${item.name}」的原因：`);
         }
 
         function renderCatalog(container) {
@@ -1240,16 +1028,14 @@
             document.getElementById('login-pin').value = '';
         });
 
-        // Initialize login check
-        if (currentUser) {
-            document.getElementById('login-overlay').classList.add('hidden');
+        async function initializeSharedSession() {
             updateUserDisplay();
-            renderCurrentTab();
-        } else {
-            updateUserDisplay();
-            document.getElementById('login-overlay').classList.remove('hidden');
+            if (sessionToken) await refreshSharedData();
+            if (currentUser) document.getElementById('login-overlay').classList.add('hidden');
         }
-        if (storageLoadError) showStorageError();
+        initializeSharedSession();
+        setInterval(() => { if (!document.hidden) refreshSharedData(); }, 10000);
+        window.addEventListener('focus', () => refreshSharedData());
     </script>
 </body>
 </html>
